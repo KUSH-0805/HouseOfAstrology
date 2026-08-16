@@ -1,0 +1,29 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "source": "backend/config/wsgi.py",
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "50mb"
+            }
+        }
+    ],
+    "routes": [
+        {
+            "source": "/api/(.*)",
+            "dest": "/backend/config/wsgi.py/api/$1"
+        },
+        {
+            "source": "/admin/(.*)",
+            "dest": "/backend/config/wsgi.py/admin/$1"
+        },
+        {
+            "source": "/(.*)",
+            "dest": "/backend/config/wsgi.py/"
+        }
+    ],
+    "env": {
+        "DJANGO_SETTINGS_MODULE": "config.settings"
+    }
+}
