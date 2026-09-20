@@ -16,6 +16,16 @@ class BookingViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(['GET'])
+def booking_detail(request, pk):
+    """Get a single booking by id (for the confirmation page)."""
+    try:
+        booking = Booking.objects.get(id=pk)
+    except Booking.DoesNotExist:
+        return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(BookingSerializer(booking).data)
+
+
+@api_view(['GET'])
 def availability(request):
     """Get available slots for a given date."""
     date = request.query_params.get('date')
@@ -48,6 +58,7 @@ def create_booking(request):
     customer_data = data['customer']
     notes = data.get('notes', '')
 
+    booking = None
     try:
         with transaction.atomic():
             # Validate service
@@ -80,7 +91,7 @@ def create_booking(request):
                 }
             )
 
-            # Create booking
+            # Create booking in pending payment state
             booking = Booking.objects.create(
                 customer=customer,
                 service=service,
@@ -90,7 +101,7 @@ def create_booking(request):
                 booking_status=Booking.Status.PENDING_PAYMENT,
             )
 
-            # Hold the slot
+            # Hold the slot until payment is completed
             slot.status = Slot.Status.HELD
             slot.save()
 

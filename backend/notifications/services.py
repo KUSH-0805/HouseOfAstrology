@@ -18,7 +18,7 @@ def send_customer_email(booking):
     message = f"""
 Hello {booking.customer.name},
 
-Your consultation has been successfully booked.
+Your consultation has been successfully booked. We look forward to speaking with you.
 
 Service: {booking.service.name}
 Date: {booking.slot.date}

@@ -24,7 +24,7 @@ export const createBooking = async (data: CreateBookingRequest): Promise<CreateB
 };
 
 export const getBooking = async (id: number): Promise<Booking> => {
-  const response = await api.get(`/api/bookings/${id}/`);
+  const response = await api.get(`/api/bookings/detail/${id}/`);
   return response.data;
 };
 

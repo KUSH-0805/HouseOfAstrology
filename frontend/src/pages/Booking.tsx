@@ -4,62 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlot from '../components/TimeSlot';
 import { Service, Slot, Customer } from '../types';
-
-// Mock data for now
-const mockServices: Service[] = [
-  {
-    id: 1,
-    name: 'Career & Finance Guidance',
-    slug: 'career-guidance',
-    description: 'Guidance for professional growth and success.',
-    duration: 30,
-    price: 999,
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Relationship Consultation',
-    slug: 'relationship-consultation',
-    description: 'Insights for meaningful connections and harmony.',
-    duration: 45,
-    price: 1499,
-    is_active: true,
-  },
-  {
-    id: 3,
-    name: 'Life Purpose Reading',
-    slug: 'life-purpose-reading',
-    description: 'Discover your path and true calling.',
-    duration: 45,
-    price: 1299,
-    is_active: true,
-  },
-  {
-    id: 4,
-    name: 'Birth Chart Reading',
-    slug: 'birth-chart-reading',
-    description: 'Deep insights from your cosmic blueprint.',
-    duration: 60,
-    price: 1999,
-    is_active: true,
-  },
-];
-
-// Mock slots for demo
-const mockSlots: Slot[] = [
-  { id: 1, date: '2026-08-20', start_time: '10:00', end_time: '10:30', status: 'AVAILABLE' },
-  { id: 2, date: '2026-08-20', start_time: '10:30', end_time: '11:00', status: 'AVAILABLE' },
-  { id: 3, date: '2026-08-20', start_time: '11:00', end_time: '11:30', status: 'BOOKED' },
-  { id: 4, date: '2026-08-20', start_time: '11:30', end_time: '12:00', status: 'BLOCKED' },
-  { id: 5, date: '2026-08-20', start_time: '12:00', end_time: '12:30', status: 'AVAILABLE' },
-  { id: 6, date: '2026-08-20', start_time: '12:30', end_time: '13:00', status: 'AVAILABLE' },
-  { id: 7, date: '2026-08-21', start_time: '10:00', end_time: '10:30', status: 'AVAILABLE' },
-  { id: 8, date: '2026-08-21', start_time: '10:30', end_time: '11:00', status: 'AVAILABLE' },
-  { id: 9, date: '2026-08-21', start_time: '11:00', end_time: '11:30', status: 'AVAILABLE' },
-  { id: 10, date: '2026-08-22', start_time: '10:00', end_time: '10:30', status: 'AVAILABLE' },
-  { id: 11, date: '2026-08-22', start_time: '10:30', end_time: '11:00', status: 'BOOKED' },
-  { id: 12, date: '2026-08-22', start_time: '11:00', end_time: '11:30', status: 'AVAILABLE' },
-];
+import { getServices } from '../services/serviceService';
+import { getAvailability, createBooking } from '../services/bookingService';
+import { createOrder, verifyPayment } from '../services/paymentService';
 
 const steps = ['Service', 'Date', 'Time', 'Details', 'Payment', 'Confirmation'];
 
@@ -67,7 +14,8 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [services] = useState<Service[]>(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -84,6 +32,19 @@ const Booking = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Load services from the API on mount
+  useEffect(() => {
+    getServices()
+      .then((data) => {
+        setServices(data);
+        setServicesLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load services. Please refresh the page.');
+        setServicesLoading(false);
+      });
+  }, []);
+
   useEffect(() => {
     const serviceId = searchParams.get('service');
     if (serviceId) {
@@ -97,9 +58,12 @@ const Booking = () => {
 
   useEffect(() => {
     if (selectedDate) {
-      // In production, this would call the API
-      // getAvailability(selectedDate).then((data) => setSlots(data.slots));
-      setSlots(mockSlots.filter((slot) => slot.date === selectedDate));
+      getAvailability(selectedDate)
+        .then((data) => setSlots(data.slots))
+        .catch(() => {
+          setSlots([]);
+          setError('Failed to load available slots. Please try again.');
+        });
     }
   }, [selectedDate]);
 
@@ -134,20 +98,68 @@ const Booking = () => {
     setError('');
 
     try {
-      // In production, this would call the API
-      // const response = await createBooking({
-      //   service_id: selectedService!.id,
-      //   slot_id: selectedSlot!.id,
-      //   customer,
-      //   notes,
-      // });
-      // navigate(`/confirmation/${response.booking.id}`);
-      
-      // Mock: navigate to confirmation
-      navigate('/confirmation/1');
+      if (!selectedService || !selectedSlot) {
+        throw new Error('Missing booking information');
+      }
+
+      // 1. Create the booking and hold the slot
+      const bookingRes = await createBooking({
+        service_id: selectedService.id,
+        slot_id: selectedSlot.id,
+        customer,
+        notes,
+      });
+      const bookingId = bookingRes.booking.id;
+
+      // 2. Create a Razorpay order for the booking
+      const orderRes = await createOrder(bookingId);
+      const { order_id, amount, currency, key_id } = orderRes;
+
+      // 3. Launch the Razorpay checkout
+      if (!(window as any).Razorpay) {
+        throw new Error('Razorpay SDK not loaded. Please refresh.');
+      }
+
+      const rzp = new (window as any).Razorpay({
+        key: key_id,
+        amount: amount as number,
+        currency: currency as string,
+        name: 'House of Astrology',
+        description: selectedService.name,
+        order_id,
+        prefill: {
+          name: customer.name,
+          email: customer.email,
+          contact: customer.phone,
+        },
+        theme: {
+          color: '#bfa060',
+        },
+        modal: {
+          ondismiss: () => setLoading(false),
+        },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            await verifyPayment({
+              booking_id: bookingId,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            navigate(`/confirmation/${bookingId}`);
+          } catch {
+            setError('Payment was received, but confirmation failed. Please contact us with your booking reference.');
+            setLoading(false);
+          }
+        },
+      });
+      rzp.open();
     } catch (err) {
       setError('Something went wrong. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -204,6 +216,13 @@ const Booking = () => {
                 transition={{ duration: 0.3 }}
               >
                 <h2 className="text-2xl font-serif text-soft-white mb-8 text-center">Select a Service</h2>
+                {servicesLoading ? (
+                  <div className="text-center py-12 text-gray-400">Loading services…</div>
+                ) : services.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    {error || 'No services are available right now. Please check back soon.'}
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {services.map((service) => (
                     <motion.button
@@ -219,6 +238,7 @@ const Booking = () => {
                     </motion.button>
                   ))}
                 </div>
+                )}
               </motion.div>
             )}
 

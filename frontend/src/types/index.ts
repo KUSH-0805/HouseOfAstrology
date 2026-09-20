@@ -65,7 +65,8 @@ export interface CreateBookingRequest {
 
 export interface CreateBookingResponse {
   booking: Booking;
-  payment: {
+  message?: string;
+  payment?: {
     order_id: string;
     amount: number;
     currency: string;

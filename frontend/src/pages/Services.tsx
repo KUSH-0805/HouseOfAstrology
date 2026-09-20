@@ -1,49 +1,27 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import ServiceCard from '../components/ServiceCard';
 import { Service } from '../types';
-
-// Mock data - will be replaced with API data
-const mockServices: Service[] = [
-  {
-    id: 1,
-    name: 'Career & Finance Guidance',
-    slug: 'career-guidance',
-    description: 'Guidance for professional growth and success. Get clarity on your career path, financial decisions, and professional opportunities.',
-    duration: 30,
-    price: 999,
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Relationship Consultation',
-    slug: 'relationship-consultation',
-    description: 'Insights for meaningful connections and harmony. Understand your relationship patterns and find balance in your personal life.',
-    duration: 45,
-    price: 1499,
-    is_active: true,
-  },
-  {
-    id: 3,
-    name: 'Life Purpose Reading',
-    slug: 'life-purpose-reading',
-    description: 'Discover your path and true calling. Uncover your life purpose and align your actions with your deeper mission.',
-    duration: 45,
-    price: 1299,
-    is_active: true,
-  },
-  {
-    id: 4,
-    name: 'Birth Chart Reading',
-    slug: 'birth-chart-reading',
-    description: 'Deep insights from your cosmic blueprint. A comprehensive analysis of your birth chart for a complete understanding of your life.',
-    duration: 60,
-    price: 1999,
-    is_active: true,
-  },
-];
+import { getServices } from '../services/serviceService';
 
 const Services = () => {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getServices()
+      .then((data) => {
+        setServices(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load services. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div className="pt-24">
       {/* Hero */}
@@ -67,19 +45,39 @@ const Services = () => {
       {/* All Services */}
       <section className="py-20">
         <div className="container-custom">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {mockServices.map((service, index) => (
-              <motion.div
-                key={service.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-              >
-                <ServiceCard service={service} />
-              </motion.div>
-            ))}
-          </div>
+          {loading && (
+            <div className="text-center py-16">
+              <p className="text-gray-400">Loading services…</p>
+            </div>
+          )}
+          {error && !loading && (
+            <div className="text-center py-16">
+              <p className="text-red-400">{error}</p>
+              <Link to="/services" className="btn-outline mt-6">
+                Retry
+              </Link>
+            </div>
+          )}
+          {!loading && !error && services.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-gray-400">No services available right now.</p>
+            </div>
+          )}
+          {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {services.map((service, index) => (
+                <motion.div
+                  key={service.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                >
+                  <ServiceCard service={service} />
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

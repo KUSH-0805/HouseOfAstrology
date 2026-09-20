@@ -1,50 +1,63 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Service } from '../types';
-
-// Mock data - will be replaced with API data
-const mockServices: Service[] = [
-  {
-    id: 1,
-    name: 'Career & Finance Guidance',
-    slug: 'career-guidance',
-    description: 'Guidance for professional growth and success. Get clarity on your career path, financial decisions, and professional opportunities.',
-    duration: 30,
-    price: 999,
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Relationship Consultation',
-    slug: 'relationship-consultation',
-    description: 'Insights for meaningful connections and harmony. Understand your relationship patterns and find balance in your personal life.',
-    duration: 45,
-    price: 1499,
-    is_active: true,
-  },
-  {
-    id: 3,
-    name: 'Life Purpose Reading',
-    slug: 'life-purpose-reading',
-    description: 'Discover your path and true calling. Uncover your life purpose and align your actions with your deeper mission.',
-    duration: 45,
-    price: 1299,
-    is_active: true,
-  },
-  {
-    id: 4,
-    name: 'Birth Chart Reading',
-    slug: 'birth-chart-reading',
-    description: 'Deep insights from your cosmic blueprint. A comprehensive analysis of your birth chart for a complete understanding of your life.',
-    duration: 60,
-    price: 1999,
-    is_active: true,
-  },
-];
+import { getServiceBySlug } from '../services/serviceService';
 
 const ServiceDetail = () => {
   const { slug } = useParams<{ slug: string }>();
-  const service = mockServices.find((s) => s.slug === slug) || mockServices[0];
+  const [service, setService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+    getServiceBySlug(slug)
+      .then((data) => {
+        setService(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setNotFound(true);
+        setLoading(false);
+      });
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="pt-24">
+        <section className="py-20 bg-charcoal">
+          <div className="container-custom text-center">
+            <p className="text-gray-400">Loading service…</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (notFound || !service) {
+    return (
+      <div className="pt-24">
+        <section className="py-20 bg-charcoal">
+          <div className="container-custom text-center">
+            <p className="section-subtitle">Service</p>
+            <h1 className="section-title">Service Not Found</h1>
+            <p className="text-gray-400 max-w-2xl mx-auto mb-10">
+              We couldn't find the consultation you're looking for. Explore our other
+              services below.
+            </p>
+            <Link to="/services" className="btn-outline text-lg">
+              View All Services
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const whoItsFor = [
     'Seeking clarity in your professional life',

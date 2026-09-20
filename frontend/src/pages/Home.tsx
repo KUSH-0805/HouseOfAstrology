@@ -1,48 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ZodiacAnimation from '../components/ZodiacAnimation';
 import ServiceCard from '../components/ServiceCard';
 import { Service } from '../types';
-
-// Mock data for now - will be replaced with API data
-const mockServices: Service[] = [
-  {
-    id: 1,
-    name: 'Career & Finance Guidance',
-    slug: 'career-guidance',
-    description: 'Guidance for professional growth and success.',
-    duration: 30,
-    price: 999,
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Relationship Consultation',
-    slug: 'relationship-consultation',
-    description: 'Insights for meaningful connections and harmony.',
-    duration: 45,
-    price: 1499,
-    is_active: true,
-  },
-  {
-    id: 3,
-    name: 'Life Purpose Reading',
-    slug: 'life-purpose-reading',
-    description: 'Discover your path and true calling.',
-    duration: 45,
-    price: 1299,
-    is_active: true,
-  },
-  {
-    id: 4,
-    name: 'Birth Chart Reading',
-    slug: 'birth-chart-reading',
-    description: 'Deep insights from your cosmic blueprint.',
-    duration: 60,
-    price: 1999,
-    is_active: true,
-  },
-];
+import { getServices } from '../services/serviceService';
 
 const steps = [
   {
@@ -75,6 +37,22 @@ const stats = [
 ];
 
 const Home = () => {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getServices()
+      .then((data) => {
+        setServices(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load services. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div>
       {/* Hero Section */}
@@ -167,19 +145,31 @@ const Home = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mockServices.map((service, index) => (
-              <motion.div
-                key={service.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-              >
-                <ServiceCard service={service} />
-              </motion.div>
-            ))}
-          </div>
+          {loading && (
+            <div className="text-center py-16">
+              <p className="text-gray-400">Loading services…</p>
+            </div>
+          )}
+          {error && !loading && (
+            <div className="text-center py-16">
+              <p className="text-red-400">{error}</p>
+            </div>
+          )}
+          {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {services.map((service, index) => (
+                <motion.div
+                  key={service.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                >
+                  <ServiceCard service={service} />
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
